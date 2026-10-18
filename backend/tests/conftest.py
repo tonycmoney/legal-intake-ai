@@ -5,7 +5,10 @@ from pathlib import Path
 import pytest
 
 _tmp = tempfile.mkdtemp()
-os.environ["DATABASE_URL"] = f"sqlite:///{Path(_tmp) / 'test.db'}"
+# CI also runs the suite against Postgres via TEST_DATABASE_URL.
+os.environ["DATABASE_URL"] = (
+    os.environ.get("TEST_DATABASE_URL") or f"sqlite:///{Path(_tmp) / 'test.db'}"
+)
 
 from fastapi.testclient import TestClient  # noqa: E402
 
