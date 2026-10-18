@@ -67,6 +67,8 @@ class Intake(Base):
     # Raw Messages API content, replayed unchanged on the next turn
     # (thinking blocks included, as the API requires).
     transcript: Mapped[list[dict]] = mapped_column(JSON, default=list)
+    # What the client actually saw (after guardrails), for the UI and staff.
+    chat: Mapped[list[dict]] = mapped_column(JSON, default=list)
     turns: Mapped[int] = mapped_column(Integer, default=0)
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
