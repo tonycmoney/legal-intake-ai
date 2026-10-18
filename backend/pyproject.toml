@@ -17,3 +17,6 @@ extend-immutable-calls = ["fastapi.Depends", "fastapi.Query"]
 testpaths = ["tests"]
 addopts = "-q"
 pythonpath = ["."]
+
+[tool.ruff.lint.isort]
+known-first-party = ["app", "tests"]
