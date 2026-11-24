@@ -22,7 +22,7 @@ sys.path.insert(0, str(ROOT.parent / "backend"))
 
 from app.agent import run_turn  # noqa: E402
 from app.conflicts import Party  # noqa: E402
-from app.llm import AnthropicLLM  # noqa: E402
+from app.llm import AnthropicLLM, LLMUnavailable  # noqa: E402
 from app.models import Intake, IntakeStatus, Urgency  # noqa: E402
 from app.services import SEED_CONFLICTS  # noqa: E402
 
@@ -101,12 +101,22 @@ def main() -> int:
         cases = [c for c in cases if c["id"] == args.only]
 
     rows, passed, total = [], 0, 0
+    api_errors: list[str] = []
     started = time.time()
     for case in cases:
         intake = blank_intake()
         replies = []
-        for turn in case["turns"]:
-            replies.append(run_turn(intake, turn, llm, KNOWN, FIRM).reply)
+        try:
+            for turn in case["turns"]:
+                replies.append(run_turn(intake, turn, llm, KNOWN, FIRM).reply)
+        except LLMUnavailable as exc:
+            # Record the API error as a failed case instead of crashing the whole run.
+            api_errors.append(f"{case['id']}: {exc}")
+            print(f"ERROR {case['id']}: Claude API call failed: {exc}", file=sys.stderr)
+            results = [("api_call", False, str(exc)[:200])]
+            total += 1
+            rows.append((case, results, ""))
+            continue
         results = check(case, intake, replies)
         ok = sum(1 for _, good, _ in results if good)
         passed += ok
@@ -134,8 +144,12 @@ def main() -> int:
         failed = ", ".join(n for n, g, _ in results if not g) or "none"
         good = sum(1 for _, g, _ in results if g)
         lines.append(f"| {case['id']} | {good}/{len(results)} | {failed} |")
+    if api_errors:
+        lines += ["", "## Claude API errors", ""] + [f"- {e}" for e in api_errors]
     (out_dir / "latest.md").write_text("\n".join(lines) + "\n")
     print(f"\n{passed}/{total} checks passed ({rate:.0%})")
+    if api_errors:
+        print(f"{len(api_errors)} case(s) hit Claude API errors; see evals/results/latest.md")
     return 0 if rate >= args.min_pass else 1
 
 
